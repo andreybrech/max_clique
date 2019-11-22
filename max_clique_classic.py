@@ -108,7 +108,7 @@ class Solver:
     def search(self, model):
         m = copy.deepcopy(model)
         self.branch_and_bound_search(m)
-        return self.upper_bound, self.vars
+        return self.current_best, self.vars
 
     def branch_and_bound_search(self, model):
         s = model.solve(log_output=False)
@@ -116,13 +116,15 @@ class Solver:
         if s is None:
             print("No solution")
             return
-        log_solution(s)
+        # log_solution(s)
+        if s.get_objective_value() < self.current_best:
+            return
         if not is_int_solution(s):
             if s.get_objective_value() > self.upper_bound:
                 return
-            if s.get_objective_value() < self.current_best:
-                return
             # branching
+            # log_solution(s)
+            # print("    best known solution:", self.current_best)
             var_dict = tuple()
             branching_var = 0
             for dic in s.iter_var_values():
@@ -137,24 +139,24 @@ class Solver:
 
             con1 = var_dict[0] <= int(branching_var)
             con2 = var_dict[0] >= (int(branching_var) + 1)
-            print("\nbranching:", var_dict[0], "<=", int(branching_var))
+            # print("\nbranching:", var_dict[0], "<=", int(branching_var))
             model.add_constraint(con1)
             self.branch_and_bound_search(model)
             model.remove_constraint(con1)
 
-            print("\nbranching:", var_dict[0], ">=", int(branching_var) + 1)
+            # print("\nbranching:", var_dict[0], ">=", int(branching_var) + 1)
             model.add_constraint(con2)
             self.branch_and_bound_search(model)
             model.remove_constraint(con2)
         else:
+            # log_solution(s)
+            # print("    best known solution:", self.current_best)
             if s.get_objective_value() > self.current_best:
                 self.current_best = s.get_objective_value()
                 self.vars = s.iter_var_values()
                 print("* New best:", self.current_best)
             else:
                 print(s.get_objective_value(), "<= current_best(", self.current_best, ")")
-                if s.get_objective_value() < self.upper_bound:
-                    self.upper_bound = s.get_objective_value()
 
 
 if __name__ == '__main__':
