@@ -255,7 +255,7 @@ def read_dimacs_graph(file_path):
                 print('{0} {1} {2}'.format(name, vertices_num, edges_num))
             elif line.startswith('e'):
                 _, v1, v2 = line.split()
-                g.add_edge(v1,v2)
+                g.add_edge(int(v1),int(v2))
             else:
                 continue
         return g
@@ -437,7 +437,7 @@ def branching_order():
     for vertex in candidates:
         clique.add(vertex)
         candidates_br = find_candidates()
-        (colors_br,_) = candidates_recolor_degree(candidates_br)
+        (colors_br,_) = candidates_recolor_new_dict(candidates_br)
         len_max_possible_clique_on_branch = len(colors_br) + len(clique)
         if len_max_possible_clique_on_branch  > len_max_current_clique: #debug +100
             order.append(vertex)
@@ -487,7 +487,7 @@ def branching_new():
             else:
                 forbiden_br[vertex] = 1
             continue
-        (colors_br,_) = candidates_recolor_degree(candidates)
+        (colors_br,_) = candidates_recolor_new_dict(candidates)
         len_max_possible_clique_on_branch = len(colors_br) + len(clique)
         #len_max_possible_clique_on_branch = 1000 # debug - del cell for work
         if len_max_possible_clique_on_branch > len_max_current_clique:
