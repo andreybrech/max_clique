@@ -1,9 +1,11 @@
 from docplex.mp.model import Model
 import copy
 
+
 class Graph(object):
     def __init__(self):
         self.V = {}
+        self.L = []
 
     def add_edge(self, v1, v2):
         """
@@ -32,7 +34,87 @@ class Graph(object):
             self.V[v1] = {}
             self.V[v1]['name'] = v1
             self.V[v1]['neighbours'] = set()
+            self.L.append(self.V[v1])
             return
+
+    def recolor(self):
+        """
+        Использовать с candidates при ветвлении
+        т.к в первоначальной окраске слишком много цветов
+        скорее всего стоит красить не каждое ветвление, а мб только в начале
+        """
+        max_color = -1
+        self.coloring = dict()
+        for vertex_name in self.V:
+            self.coloring[vertex_name] = None
+        self.used_colors = dict()
+        for vertex_name in self.V:
+            available_colors = set(self.used_colors.keys())
+            for neighbour_name in self.V[vertex_name]['neighbours']:
+                available_colors -= {self.coloring[neighbour_name]}
+                if len(available_colors) == 0:
+                    break
+            if len(available_colors) == 0:
+                max_color += 1  # color is index in candidates_coloring
+                self.used_colors[max_color] = set()
+                self.used_colors[max_color].add(vertex_name)
+                self.coloring[vertex_name] = max_color
+
+            if len(available_colors) != 0:
+                for available_color in available_colors:
+                    rand_available_color = available_color
+                    break
+                self.used_colors[rand_available_color].add(vertex_name)
+                self.coloring[vertex_name] = rand_available_color
+
+    def initial_heuristic_color(self):
+        clique = set()
+        for color in range(len(self.used_colors)):
+            for vertex_name in self.used_colors[color]:
+                all_are_neighbours = True
+                for element_name in clique:
+                    all_are_neighbours = all_are_neighbours and (element_name in self.V[vertex_name]['neighbours'])
+                    if not all_are_neighbours:
+                        break
+                if all_are_neighbours:
+                    clique.add(vertex_name)
+        return len(clique)
+
+    def initial_heuristic_color_reverse(self):
+        clique = set()
+        for color in range(len(self.used_colors) - 1, -1, -1):
+            for vertex_name in self.used_colors[color]:
+                all_are_neighbours = True
+                for element_name in clique:
+                    all_are_neighbours = all_are_neighbours and (element_name in self.V[vertex_name]['neighbours'])
+                    if not all_are_neighbours:
+                        break
+                #             print(vertex_name,all_are_neighbours )
+                if all_are_neighbours:
+                    clique.add(vertex_name)
+        return len(clique)
+
+    def initial_heuristic_degree(self):
+        clique = set()
+        for vertex in self.L:
+            all_are_neighbours = True
+            for element in clique:
+                all_are_neighbours = all_are_neighbours and (element in self.V[vertex['name']])
+                if not all_are_neighbours:
+                    break
+                    print(vertex['name'], all_are_neighbours)
+            if all_are_neighbours:
+                clique.add(vertex['name'])
+        return len(clique)
+
+    def find_init_heuristic(self):
+        self.L.sort(key=lambda input: len(input['neighbours']), reverse=True)
+        self.recolor()
+
+        c1 = self.initial_heuristic_color()
+        c2 = self.initial_heuristic_color_reverse()
+        c3 = self.initial_heuristic_degree()
+        return max(c1, c2, c3)
 
 
 def read_dimacs_graph(file_path):
@@ -64,8 +146,8 @@ def build_problem(g=Graph()):
 
     for i in g.V:
         for j in x_range:
-            if (j+1 is not i) and (j+1 not in g.V[i]['neighbours']):
-                mdl.add_constraint(x[i-1] + x[j] <= 1)
+            if (j + 1 is not i) and (j + 1 not in g.V[i]['neighbours']):
+                mdl.add_constraint(x[i - 1] + x[j] <= 1)
 
     for i in x_range:
         mdl.add_constraint(x[i] <= 1)
@@ -92,18 +174,18 @@ def is_int_solution(sol):
     for vars in sol.iter_var_values():
         if vars[1] % 1 > eps and abs(vars[1] % 1 - 1) > eps:
             return False
-    print("int solution")
-    for i, j in sol.iter_var_values():
-        print(i, j, sep=', ', end='; ')
-    print("")
+    # print("int solution")
+    # for i, j in sol.iter_var_values():
+    #     print(i, j, sep=', ', end='; ')
+    # print("")
     return True
 
 
 class Solver:
-    def __init__(self, objective, vars):
+    def __init__(self, objective, vars, init_heuristic=0):
         self.upper_bound = objective
         self.vars = vars
-        self.current_best = 0
+        self.current_best = init_heuristic
 
     def search(self, model):
         m = copy.deepcopy(model)
@@ -155,21 +237,27 @@ class Solver:
                 self.current_best = s.get_objective_value()
                 self.vars = s.iter_var_values()
                 print("* New best:", self.current_best)
+                for i, j in s.iter_var_values():
+                    print(i, j, sep=', ', end='; ')
+                print("")
             else:
-                print(s.get_objective_value(), "<= current_best(", self.current_best, ")")
+                # print(s.get_objective_value(), "<= current_best(", self.current_best, ")")
+                pass
 
 
-if __name__ == '__main__':
+def solve_problem():
     # path_test = 'C125.9.clq.txt'
     path_test = 'test2.txt'
     g = read_dimacs_graph(path_test)
+    heuristic = g.find_init_heuristic()
+    print("Initial heuristic:", heuristic)
     model = build_problem(g)
 
     sol = model.solve(log_output=True)
     if sol is not None:
         model.print_solution()
 
-        solver = Solver(sol.get_objective_value(), sol.iter_var_values())
+        solver = Solver(sol.get_objective_value(), sol.iter_var_values(), heuristic)
         obj, vars = solver.search(model)
 
         print("\n------> SOLUTION <------")
@@ -177,7 +265,14 @@ if __name__ == '__main__':
         print("Solution vars:")
         for c in vars:
             print(c[0], c[1])
-        print("\nBranch-and-Bounded from:")
-        model.print_solution()
+        # print("\nBranch-and-Bounded from:")
+        # model.print_solution()
     else:
         print("Model is infeasible")
+
+
+if __name__ == '__main__':
+
+    import timeit
+    elapsed_time = timeit.timeit(solve_problem, number=1)
+    print("Time in seconds: ", elapsed_time)
