@@ -1,5 +1,3 @@
-
-
 class Graph(object):
     """
     class of graph
@@ -116,7 +114,7 @@ class Graph(object):
         self.used_colors = set()
         self.coloring = dict()
 
-        
+
     def recolor(self):
         """
         Использовать с candidates при ветвлении
