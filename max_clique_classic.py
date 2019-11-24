@@ -102,13 +102,12 @@ class Graph(object):
                 all_are_neighbours = all_are_neighbours and (element in self.V[vertex['name']])
                 if not all_are_neighbours:
                     break
-                    print(vertex['name'], all_are_neighbours)
             if all_are_neighbours:
                 clique.add(vertex['name'])
         return len(clique)
 
     def find_init_heuristic(self):
-        self.L.sort(key=lambda input: len(input['neighbours']), reverse=True)
+        self.L.sort(key=lambda i: len(i['neighbours']), reverse=True)
         self.recolor()
 
         c1 = self.initial_heuristic_color()
@@ -140,7 +139,6 @@ def build_problem(g=Graph()):
     x_range = range(len(g.V))
 
     # decision variables
-    x = dict()
     # x = mdl.integer_var_dict(x_range)
     x = mdl.continuous_var_dict(x_range)
 
@@ -171,8 +169,8 @@ def log_solution(res):
 def is_int_solution(sol):
     if sol.get_objective_value() % 1 != 0:
         return False
-    for vars in sol.iter_var_values():
-        if vars[1] % 1 > eps and abs(vars[1] % 1 - 1) > eps:
+    for var in sol.iter_var_values():
+        if var[1] % 1 > eps and abs(var[1] % 1 - 1) > eps:
             return False
     # print("int solution")
     # for i, j in sol.iter_var_values():
@@ -258,12 +256,12 @@ def solve_problem():
         model.print_solution()
 
         solver = Solver(sol.get_objective_value(), sol.iter_var_values(), heuristic)
-        obj, vars = solver.search(model)
+        obj, variables = solver.search(model)
 
         print("\n------> SOLUTION <------")
         print("Objective:", obj)
         print("Solution vars:")
-        for c in vars:
+        for c in variables:
             print(c[0], c[1])
         # print("\nBranch-and-Bounded from:")
         # model.print_solution()
@@ -272,7 +270,7 @@ def solve_problem():
 
 
 if __name__ == '__main__':
-
     import timeit
+
     elapsed_time = timeit.timeit(solve_problem, number=1)
     print("Time in seconds: ", elapsed_time)
